@@ -42,7 +42,8 @@ or option count.
   performs poorly at the default budget. Keep a single choice question to roughly 20 options,
   or evaluate a shortlist and a larger head budget on your own labels.
 - **Calibration:** Both base checkpoints are over-confident on the published suites as shipped,
-  yet a separate routing task was under-confident. Fit and evaluate temperatures on separate,
+  yet a separate routing task was under-confident, and so is `laya-typed-decisions` on
+  typed-decisions. Fit and evaluate temperatures on separate,
   held-out examples from your workflow before using a confidence gate.
 - **Task transfer:** Held-out moderation is weak in the application benchmark, and ordinal
   `score` is the weakest primitive in the reported English suites. The multilingual checkpoint

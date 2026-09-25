@@ -1,6 +1,6 @@
 # Laya benchmarks
 
-Every checkpoint answered **byte-identical questions** in each run (fixed seed). Jev figures are **third-party published, never measured here** — no TypeSafe API access — so sample sizes and prompts differ; treat them as indicative.
+Every checkpoint answered **byte-identical questions** in each run (fixed seed). Jev figures are **third-party published, never measured here** — no TypeSafe API access — so sample sizes and prompts differ; treat them as indicative. The exception is Jev's typed-decisions ECE under [Calibration](#calibration), measured through OpenRouter on the same cases as Laya.
 
 | run | what | where |
 |---|---|---|
@@ -29,11 +29,16 @@ The raw-temperature column reproduces the committed file, so the only variable l
 
 | | Laya | Jev (published) |
 |---|---|---|
-| typed-decisions (2,000 decisions) | **0.766** | 0.727 |
+| typed-decisions (2,000 decisions) [^ft] | **0.766** | 0.727 |
 | AG News (4 labels) | **0.953** | 0.910 |
 | DAIR Emotion (6 labels) | **0.600** | 0.480 |
-| ECE after temperature fitting | **0.081** | 0.246 |
+| ECE after temperature fitting | **0.081** | 0.035 *(measured, see [Calibration](#calibration))* |
 | p50 latency, 1 question (T4) | **32.8 ms** | 236-276 ms |
+
+[^ft]: `laya-typed-decisions` is fine-tuned on this benchmark's 1,200-case training split; the Jev
+figure is zero-shot. The benchmark's own card puts teacher self-agreement at 0.735 and says "a score
+much above 0.75 means a model has learned the teacher's quirks rather than the task", so read 0.766
+with that in mind. The zero-shot comparison is the base `laya` checkpoint at 0.361.
 
 ---
 
@@ -191,7 +196,24 @@ banking77 is the one clear loss, and it is architectural: a choice question's op
 | `laya` | 0.466 | **0.081** |
 | `laya-multilingual` | 0.314 | **0.106** |
 
-Both ship over-confident; `laya-multilingual` ships with no fitted temperatures at all. Refitting one temperature per (question type, option count) on held-out data is the single highest-value fix available, and takes ECE below Jev's measured 0.246.
+Both base checkpoints ship over-confident on these suites; `laya-multilingual` ships with no fitted temperatures at all. Refitting one temperature per (question type, option count) on held-out data is the single highest-value fix available.
+
+The direction is not uniform. On typed-decisions `laya-typed-decisions` (shipped temperatures ~1.0) is
+**under**-confident: mean top-probability confidence 0.553 against accuracy 0.769. Cross-fitted
+temperatures (fit on half the cases, score the other half, both ways) all *sharpen*:
+
+| `laya-typed-decisions`, typed-decisions test | ECE | fitted T |
+|---|---|---|
+| as shipped | 0.216 | ~1.0 |
+| refit within the runtime's `[0.5, 5.0]` clamp | **0.073** | 0.5 in every bucket |
+| refit without the clamp | 0.027 | 0.22-0.39 |
+
+Accuracy is 0.769 in every row. The clamp is binding here, so the best this checkpoint reaches through
+a config file today is 0.073.
+
+Jev's ECE on the same cases is **0.035** as shipped, and refitting moves it only to 0.033, so it has
+almost no calibration headroom. Measured through OpenRouter (`typesafe/jev-1.13`, `POST /api/alpha/decisions`) on the same 400 held-out cases, one scorer for both models, confidence = max probability, 15 bins. The 0.246 previously quoted is not what Jev
+does on this benchmark.
 
 ### Option-order robustness
 
@@ -277,7 +299,7 @@ Values are p50. p95 is within 2% of p50 on every row. Up to 10 questions, each q
 - **Near chance on typed-decisions zero-shot** — the 0.766 belongs to the fine-tuned checkpoint, on that benchmark's own training split.
 - **Moderation does not hold up on held-out data** (0.530, macro-F1 0.400).
 - **Keep `choice` questions under ~20 options.**
-- **Both checkpoints ship over-confident.** Fit temperatures on your own data.
+- **No checkpoint ships calibrated for your data, and the direction varies.** The base checkpoints are over-confident on these suites; `laya-typed-decisions` is *under*-confident on typed-decisions. Fit temperatures on your own data.
 - **Ordinal `score` is the weakest primitive** (SST-5 0.372).
 - `laya` collapses outside English; `laya-multilingual` is weaker on English. Route.
 

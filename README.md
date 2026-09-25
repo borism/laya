@@ -631,7 +631,7 @@ else:
     escalate_to_human_agent(dept, reason=f"Low confidence ({conf:.2f})")
 ```
 
-A threshold is a policy you choose from measured accuracy at that coverage on your data, not a property of the model. Both checkpoints are over-confident as shipped and `laya-multilingual` has no fitted temperatures at all, so fit them before relying on these numbers — see [Calibration](#calibration) above, and the [fine-tuning notebook](notebooks/laya_finetune_typed_decisions_2xT4_kaggle.ipynb) for the fitting loop itself. Then pick the point where the errors you accept are ones you can live with. Confidence orders decisions; it does not establish that a decision is correct.
+A threshold is a policy you choose from measured accuracy at that coverage on your data, not a property of the model. The base checkpoints are over-confident as shipped, `laya-typed-decisions` is under-confident, and `laya-multilingual` has no fitted temperatures at all, so fit them before relying on these numbers — see [Calibration](#calibration) above, and the [fine-tuning notebook](notebooks/laya_finetune_typed_decisions_2xT4_kaggle.ipynb) for the fitting loop itself. Then pick the point where the errors you accept are ones you can live with. Confidence orders decisions; it does not establish that a decision is correct.
 
 A threshold also depends on the autocast dtype. On CUDA at compute capability 8 or above the runtime uses the checkpoint's `amp_dtype`, which is bf16 for all three shipped checkpoints. On the fixed set from `benchmarks/parity_fast.py` (60 states, 288 questions per checkpoint, RTX 2000 Ada) bf16 moves a probability by up to 0.073 against the fp32 forward and flips 3 of 864 argmaxes across the three checkpoints; fp16 stays within 0.019 and flips none, at the same latency. `LAYA_CUDA_AMP=fp16` selects fp16 and `LAYA_CUDA_AMP=bf16` selects bf16 (`LAYA_CPU_AMP=bf16` is the CPU counterpart). Fit and measure a threshold in the dtype you serve with.
 
@@ -876,11 +876,11 @@ published, never measured here** (no TypeSafe API access), so sample sizes and p
 
 | | Jev 1.13.0 | Laya (routed) | |
 |---|---|---|---|
-| typed-decisions, 2,000 decisions | 0.727 | **0.766** | +0.039 |
+| typed-decisions, 2,000 decisions | 0.727 *(zero-shot)* | **0.766** *(fine-tuned on this benchmark)* | +0.039 |
 | AG News, 4 labels | 0.910 | **0.950** | +0.040 |
 | DAIR Emotion, 6 labels | 0.480 | **0.595** | +0.115 |
 | Banking77 (72 vs 77 labels) | **0.870** | 0.425 | Jev leads on >20 options |
-| ECE *(lower better)* | 0.246 | **0.081** | 3× better (post-temperature) |
+| ECE *(lower better)* | **0.035** *(measured)* | 0.081 | Jev leads; see [`BENCHMARKS.md`](BENCHMARKS.md#calibration) |
 | p50 latency, 1 question | 236–276 ms | **32.8 ms** | 7.8× faster |
 | Languages usable | *no published benchmark* | **45 of 51** | — |
 | Weights | closed API | **Apache 2.0** | — |
@@ -893,7 +893,7 @@ failure for anything branching on confidence.
 
 * **High-cardinality label spaces (>20 options at default settings):** On Banking77, Jev scores 0.870 (on 72 labels) while Laya scores 0.425 (on 77 labels at default 256-token head budget). This is an architectural token-budget constraint: options share a fixed `head_max_len` budget (192 tokens on English, 256 on multilingual), so 77 options receive only ~3 to 4 tokens per label, causing text to become indistinguishable. Jev supports up to 255 options out-of-the-box. While `laya-multilingual` supports 1,024 context (and up to 8,192 in the encoder) and you can raise `agent.cfg["head_max_len"] = 512` at runtime, Jev is currently better suited for 50+ options in a single prompt without tuning. `predict_shortlist` (see [Honest limits](#honest-limits)) keeps the top `k` labels with a caller-supplied embedding, then runs one forward pass on that shortlist.
 * **Soft distribution matching:** On typed-decisions, while Laya achieves higher argmax accuracy (0.766 vs 0.727), Jev achieves higher soft accuracy (0.580 vs 0.471) against the teacher's full probability distributions.
-* **Out-of-the-box raw calibration:** Before temperature scaling, the base checkpoint has higher raw ECE (0.213 vs 0.144). Laya achieves its 0.081 ECE after domain temperature fitting.
+* **Calibration:** Measured on the same 400 typed-decisions cases, Jev's ECE is 0.035 as shipped. `laya-typed-decisions` is 0.216 as shipped and 0.073 after refitting within the runtime's temperature clamp. See [`BENCHMARKS.md`](BENCHMARKS.md#calibration).
 
 Full detail, including every workflow and all 51 languages: **[`BENCHMARKS.md`](BENCHMARKS.md)**.
 
@@ -950,7 +950,8 @@ forward pass.
 
 ### Calibration
 
-Both checkpoints are over-confident as shipped. Refitting one temperature per (question type,
+Both base checkpoints are over-confident as shipped; `laya-typed-decisions` is *under*-confident on
+typed-decisions (see [`BENCHMARKS.md`](BENCHMARKS.md#calibration)). Refitting one temperature per (question type,
 option count) on held-out data moves mean ECE **0.466 -> 0.081** (`laya`) and
 **0.314 -> 0.106** (`laya-multilingual`). `laya-multilingual` ships with no fitted
 temperatures at all, so fit them before relying on its probabilities.
@@ -1095,7 +1096,8 @@ Run the CPU-only regression checks with `python tests/test_calibration_persisten
 Fine-tuning is where most of the value is. On the typed-decisions benchmark the base
 checkpoints score near chance zero-shot (0.36 and 0.35 against a 0.318 random baseline),
 while the fine-tuned checkpoint reaches **0.766** on the same 2,000 decisions -- above
-TypeSafe Jev's published 0.727 and above the 0.735 teacher self-agreement ceiling. Treat Laya
+TypeSafe Jev's zero-shot 0.727 and above the 0.735 teacher self-agreement ceiling, which the
+benchmark's card reads as learning the teacher's quirks rather than the task. Treat Laya
 as a fast base to specialise, not as a zero-shot decision engine.
 
 Runtime on 2xT4 is roughly 4-5 hours for 4 epochs over ~30k questions.
