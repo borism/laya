@@ -962,6 +962,12 @@ values, including when a bucket uses the fallback. Raw values remain available i
 `agent.temperature_raw` and `agent.temperature_by_options_raw`. A fallback prevents a loading
 failure; it does not establish calibrated confidence.
 
+`laya.calibrate.fit_temperatures(agent, examples)` fits these on labelled held-out data and
+returns the `temperature` / `temperature_by_options` pair for the config, or for
+`lang_temperatures[lang]` with `lang=`. It searches only inside `[0.5, 5.0]` and warns for any
+bucket that ends on the bound. The CLI form is
+`python -m laya.calibrate <model> <labelled.jsonl> [out.json]`.
+
 ### Honest limits
 
 * **The base checkpoints are near chance on typed-decisions zero-shot** -- 0.362 and 0.352

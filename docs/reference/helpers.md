@@ -38,6 +38,10 @@
 
 ## Calibration and training
 
+::: laya.calibrate.fit_temperatures
+
+::: laya.calibrate.fit_scale
+
 ::: laya.common.confidence_from_probs
 
 ::: laya.common.ece_score
