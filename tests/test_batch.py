@@ -263,7 +263,8 @@ with patch.object(_agent, "confidence_from_probs", wraps=_agent.confidence_from_
                   "probabilities": {"0": 0.25, "1": 0.75}, "confidence": 0.1887,
                   "answer_confidence": 0.75,
                   "action": {"act_probability": 0.25}},
-        "flag": {"type": "noul", "noul": 0.2, "confidence": 0.8,
+        "flag": {"type": "noul", "noul": 0.2, "probabilities": {"false": 0.8, "true": 0.2},
+                 "confidence": 0.8,
                  # max(p) over two options is max(p_true, 1 - p_true): the same number
                  "answer_confidence": 0.8,
                  "action": {"act_probability": 0.75}},
@@ -277,6 +278,7 @@ with patch.object(_agent, "confidence_from_probs", wraps=_agent.confidence_from_
         )
         check("decode/noul confidence at p=%s" % true_probability, result["flag"], {
             "type": "noul", "noul": true_probability,
+            "probabilities": {"false": round(1.0 - true_probability, 4), "true": true_probability},
             "confidence": max(true_probability, 1.0 - true_probability),
             "answer_confidence": max(true_probability, 1.0 - true_probability),
             "action": {"act_probability": 0.75},

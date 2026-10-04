@@ -71,6 +71,7 @@ export interface ScoreAnswer {
 export interface NoulAnswer {
   type: "noul";
   noul: number;
+  probabilities: { false: number; true: number };
   confidence: number;
   answer_confidence: number;
   action: ActionInfo;
@@ -781,6 +782,7 @@ export class Agent extends HookRegistry {
     return {
       type: "noul",
       noul: r4(pt),
+      probabilities: { false: r4(p[0] ?? 0), true: r4(pt) },
       confidence: r4(Math.max(pt, 1 - pt)),
       // over two options max(p_true, 1 - p_true) is max(p): identical to confidence here
       answer_confidence: ansConf,

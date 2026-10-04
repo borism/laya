@@ -708,6 +708,7 @@ class ONNXAgent(HookRegistry):
                 answers[qid] = {
                     "type": "noul",
                     "noul": round(float(p[1]), 4),
+                    "probabilities": {"false": round(float(p[0]), 4), "true": round(float(p[1]), 4)},
                     "confidence": round(max(float(p[1]), 1.0 - float(p[1])), 4),
                     "answer_confidence": ans_conf,
                     "action": ext,

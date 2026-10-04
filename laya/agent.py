@@ -1382,6 +1382,7 @@ class Agent(HookRegistry):
                 answers[qid] = {
                     "type": "noul",
                     "noul": round(float(p[1]), 4),
+                    "probabilities": {"false": round(float(p[0]), 4), "true": round(float(p[1]), 4)},
                     "confidence": round(max(float(p[1]), 1.0 - float(p[1])), 4),
                     # identical here: over two options max(p_true, 1 - p_true) is max(p)
                     "answer_confidence": ans_conf,
